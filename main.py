@@ -7,6 +7,9 @@ from settings import PC, CONSOLE, URL, Zone
 
 
 def get_stat_page(url: str) -> str:
+    """
+    Return text of page on request url.
+    """
     request = requests.get(url)
     request.encoding = 'utf-8'
     if request.status_code == 200:
@@ -15,6 +18,9 @@ def get_stat_page(url: str) -> str:
 
 
 def get_current_loads(params: Zone, bs_object: BeautifulSoup) -> dict:
+    """
+    Return dict with load of zone
+    """
     limit = bs_object.find_all('p', params.tag)
     tags_set = set(
         tag for tag in limit
@@ -34,8 +40,15 @@ def get_current_loads(params: Zone, bs_object: BeautifulSoup) -> dict:
     }
 
 
-def get_zone_data(url: str):
-    html = get_stat_page(URL)
+def get_zone_data(url: str) -> str:
+    """
+    Return JSON with loads data PC and CONSOLE zones
+    or None if url address is not available.
+    """
+    try:
+        html = get_stat_page(url)
+    except:
+        return None
     bs_object = BeautifulSoup(html, "lxml")
     pc_dict = {}
     console_dict = {}
