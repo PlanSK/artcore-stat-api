@@ -26,7 +26,7 @@ PC = (
         id=3,
         name='C ZONE',
         tag='czone',
-        items_range=range(17, 24)
+        items_range=range(17, 25)
     ),
     Zone(
         id=4,
