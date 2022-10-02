@@ -34,17 +34,17 @@ def get_current_loads(zone: Zone, bs_object: BeautifulSoup) -> GameZone:
     """
     Return dict with load of zone
     """
-    limit = bs_object.find_all('p', zone.tag)
+    tag_list = bs_object.find_all('p', zone.tag)
     tags_set = set(
-        tag for tag in limit
+        (int(tag.get_text(strip=True)), tag.img.attrs.get('src'))
+        for tag in tag_list
         if int(tag.get_text(strip=True)) in zone.items_range
     )
-    all_count = len(tags_set)
     busy_items = [
-        tag for tag in tags_set 
-        if (tag.img.attrs.get('src') and
-                tag.img.attrs.get('src').find('red') >= 0)
+        item_id for item_id, img_name in tags_set
+        if img_name.find('red') >= 0
     ]
+    all_count = len(tags_set)
     busy_count = len(busy_items)
     return GameZone(
         id=zone.id,
@@ -76,4 +76,4 @@ def get_zone_data(url: str) -> Union[ZonesLoadData, None]:
 
 
 if __name__ == "__main__":
-    print(get_zone_data(URL))
+    print(get_zone_data(URL).json(indent=2))
