@@ -4,19 +4,19 @@ import requests
 from bs4 import BeautifulSoup
 from pydantic import BaseModel
 
-from settings import PC, CONSOLE, URL, Zone
+from settings import URL, ZONES, Zone
 
 
 class GameZone(BaseModel):
     id: int
     name: str
+    zone_type: str
     all_items: int
     busy_items: int
     free_items: int
 
 class ZonesLoadData(BaseModel):
-    pc_zone: list[GameZone]
-    console_zone: list[GameZone]
+    zone_list: list[GameZone]
 
 
 def get_stat_page(url: str) -> str:
@@ -34,7 +34,7 @@ def get_current_loads(zone: Zone, bs_object: BeautifulSoup) -> GameZone:
     """
     Return dict with load of zone
     """
-    tag_list = bs_object.find_all('p', zone.tag)
+    tag_list = bs_object.find_all('p', zone.tag_class_name)
     tags_set = set(
         (int(tag.get_text(strip=True)), tag.img.attrs.get('src'))
         for tag in tag_list
@@ -49,13 +49,14 @@ def get_current_loads(zone: Zone, bs_object: BeautifulSoup) -> GameZone:
     return GameZone(
         id=zone.id,
         name=zone.name,
+        zone_type=zone.zone_type,
         all_items=all_count,
         busy_items=busy_count,
         free_items=all_count - busy_count,
     )
 
 
-def get_zone_data(url: str) -> Union[ZonesLoadData, None]:
+def get_zone_data(url: str) -> ZonesLoadData:
     """
     Return JSON with loads data PC and CONSOLE zones
     or None if url address is not available.
@@ -63,16 +64,13 @@ def get_zone_data(url: str) -> Union[ZonesLoadData, None]:
     try:
         html = get_stat_page(url)
     except:
-        return None
+        return ZonesLoadData(zone_list=[])
     bs_object = BeautifulSoup(html, "lxml")
-    pc_zone = [
-        get_current_loads(zone=zone, bs_object=bs_object) for zone in PC
-    ]
-    console_zone = [
-        get_current_loads(zone=zone, bs_object=bs_object) for zone in CONSOLE
+    zone_list = [
+        get_current_loads(zone=zone, bs_object=bs_object) for zone in ZONES
     ]
 
-    return ZonesLoadData(pc_zone=pc_zone, console_zone=console_zone)
+    return ZonesLoadData(zone_list=zone_list)
 
 
 if __name__ == "__main__":
