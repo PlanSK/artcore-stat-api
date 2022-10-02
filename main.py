@@ -1,77 +1,33 @@
-from typing import Union
+from fastapi import FastAPI
 
-import requests
-from bs4 import BeautifulSoup
-from pydantic import BaseModel
+from parser import get_zone_data, GameZone
+from settings import URL
 
-from settings import URL, ZONES, Zone
-
-
-class GameZone(BaseModel):
-    id: int
-    name: str
-    zone_type: str
-    all_items: int
-    busy_items: int
-    free_items: int
-
-class ZonesLoadData(BaseModel):
-    zone_list: list[GameZone]
+app = FastAPI()
 
 
-def get_stat_page(url: str) -> str:
+@app.get('/')
+async def return_all_data() -> list[GameZone]:
     """
-    Return text of page on request url.
+    Return all availabled data
     """
-    request = requests.get(url)
-    request.encoding = 'utf-8'
-    if request.status_code != 200:
-        raise ValueError('Status code is not 200')
-    return request.text
+    return get_zone_data(URL)
 
 
-def get_current_loads(zone: Zone, bs_object: BeautifulSoup) -> GameZone:
+@app.get('/id/{zone_id}')
+async def return_zone_by_id(zone_id: int) -> list[GameZone]:
     """
-    Return dict with load of zone
+    Return zone data by zone id
     """
-    tag_list = bs_object.find_all('p', zone.tag_class_name)
-    tags_set = set(
-        (int(tag.get_text(strip=True)), tag.img.attrs.get('src'))
-        for tag in tag_list
-        if int(tag.get_text(strip=True)) in zone.items_range
-    )
-    busy_items = [
-        item_id for item_id, img_name in tags_set
-        if img_name.find('red') >= 0
+    return [zone for zone in get_zone_data(URL) if zone.id == zone_id]
+
+
+@app.get('/type/{zone_type}')
+async def return_zone_by_type(zone_type: str) -> list[GameZone]:
+    """
+    Returns zone list by zone type
+    """
+    return [
+        zone for zone in get_zone_data(URL)
+        if zone.zone_type == zone_type
     ]
-    all_count = len(tags_set)
-    busy_count = len(busy_items)
-    return GameZone(
-        id=zone.id,
-        name=zone.name,
-        zone_type=zone.zone_type,
-        all_items=all_count,
-        busy_items=busy_count,
-        free_items=all_count - busy_count,
-    )
-
-
-def get_zone_data(url: str) -> ZonesLoadData:
-    """
-    Return JSON with loads data PC and CONSOLE zones
-    or None if url address is not available.
-    """
-    try:
-        html = get_stat_page(url)
-    except:
-        return ZonesLoadData(zone_list=[])
-    bs_object = BeautifulSoup(html, "lxml")
-    zone_list = [
-        get_current_loads(zone=zone, bs_object=bs_object) for zone in ZONES
-    ]
-
-    return ZonesLoadData(zone_list=zone_list)
-
-
-if __name__ == "__main__":
-    print(get_zone_data(URL).json(indent=2))
