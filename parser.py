@@ -1,5 +1,3 @@
-from typing import Union
-
 import requests
 from bs4 import BeautifulSoup
 from pydantic import BaseModel
@@ -7,13 +5,23 @@ from pydantic import BaseModel
 from settings import URL, ZONES, Zone
 
 
+class Console(BaseModel):
+    id: int
+    name: str
+    is_busy: bool
+
+
 class GameZone(BaseModel):
     id: int
     name: str
-    zone_type: str
-    all_items: int
-    busy_items: int
-    free_items: int
+    all_items: list
+    busy_items: list
+    free_items: list
+
+
+class Zones(BaseModel):
+    pc_zones_list: list[GameZone] = []
+    console_zones_list: list[Console] = []
 
 
 def get_stat_page(url: str) -> str:
@@ -27,48 +35,62 @@ def get_stat_page(url: str) -> str:
     return request.text
 
 
-def get_current_loads(zone: Zone, bs_object: BeautifulSoup) -> GameZone:
+def get_current_loads(zone: Zone,
+                      bs_object: BeautifulSoup) -> GameZone | Console:
     """
     Return dict with load of zone
     """
     tag_list = bs_object.find_all('p', zone.tag_class_name)
-    tags_set = set(
+    all_items_set = set(
         (int(tag.get_text(strip=True)), tag.img.attrs.get('src'))
         for tag in tag_list
         if int(tag.get_text(strip=True)) in zone.items_range
     )
+    all_items_list = list(zone.items_range)
     busy_items = [
-        item_id for item_id, img_name in tags_set
+        item_id for item_id, img_name in all_items_set
         if img_name.find('red') >= 0
     ]
-    all_count = len(tags_set)
-    busy_count = len(busy_items)
-    return GameZone(
+    if zone.zone_type == 'pc':
+        return GameZone(
+            id=zone.id,
+            name=zone.name,
+            all_items=all_items_list,
+            busy_items=busy_items,
+            free_items=list(set(all_items_list) - set(busy_items)),
+        )
+
+    is_busy = True if busy_items else False
+    return Console(
         id=zone.id,
         name=zone.name,
-        zone_type=zone.zone_type,
-        all_items=all_count,
-        busy_items=busy_count,
-        free_items=all_count - busy_count,
+        is_busy=is_busy
     )
 
 
-def get_zone_data(url: str) -> list[GameZone]:
+def get_zones_data(url: str) -> Zones:
     """
-    Return JSON with loads data PC and CONSOLE zones
-    or None if url address is not available.
+    Return list with loads data PC and CONSOLE zones
+    or empty list if url address is not available.
     """
     try:
         html = get_stat_page(url)
     except:
-        return []
+        return Zones()
     bs_object = BeautifulSoup(html, "lxml")
-    zone_list = [
-        get_current_loads(zone=zone, bs_object=bs_object) for zone in ZONES
-    ]
+    zones_data = Zones()
+    for zone in ZONES:
+        current_zone = get_current_loads(zone=zone, bs_object=bs_object)
+        if isinstance(current_zone, GameZone):
+            zones_data.pc_zones_list.append(current_zone)
+        elif isinstance(current_zone, Console):
+            zones_data.console_zones_list.append(current_zone)
+        else:
+            raise TypeError('Unknown type data of zone')
 
-    return zone_list
+
+    return zones_data
 
 
 if __name__ == "__main__":
-    print(get_zone_data(URL))
+    print(get_zones_data(URL))
