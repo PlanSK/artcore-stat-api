@@ -1,7 +1,12 @@
+import os
+import sys
+
+sys.path.append(os.path.dirname(os.path.realpath(__file__)))
+
 from fastapi import FastAPI
 
-from parser import get_zones_data, GameZone, Console, Zones
-from settings import URL
+from parser.parser import get_zones_data, GameZone, Console, Zones
+from parser.settings import URL
 
 app = FastAPI()
 

@@ -2,7 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 from pydantic import BaseModel
 
-from settings import URL, ZONES, Zone
+from .settings import URL, ZONES, Zone
 
 
 class Console(BaseModel):
